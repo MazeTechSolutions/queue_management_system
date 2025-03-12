@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:queue_management_system/src/core/database/database_helper.dart';
@@ -27,6 +30,24 @@ class QueueRepository {
       final List<Map<String, dynamic>> maps = await db.query('queue_entries');
       // print('QUEUE');
       print("Fetched ${maps.length} entries from queue_entries table");
+      return maps.map((map) => PersonDetails.fromMap(map)).toList();
+    } catch (e) {
+      print("Error fetching queue: $e");
+      return [];
+    }
+  }
+
+  //Search for a person in the queue
+  Future<List<PersonDetails>> searchQueue(String query) async {
+    final db = await _dbHelper.database;
+    try {
+      final List<Map<String, dynamic>> maps = await db.query(
+        'queue_entries',
+        where: 'full_name LIKE ? OR phone_number LIKE ?',
+        whereArgs: ['%$query%', '%$query%'],
+      );
+      print(
+          "Fetched ${maps.length} entries from queue_entries table for query: $query");
       return maps.map((map) => PersonDetails.fromMap(map)).toList();
     } catch (e) {
       print("Error fetching queue: $e");
@@ -103,4 +124,15 @@ class QueueRepository {
 final queueRepoProvider = Provider<QueueRepository>((ref) {
   final dbHelper = ref.watch(databaseProvider);
   return QueueRepository(dbHelper);
+});
+//search provider
+final searchQueueProvider = FutureProvider.autoDispose
+    .family<List<PersonDetails>, String>((ref, query) async {
+  ref.onDispose(() => debugPrint('disposed: $query'));
+  final link = ref.keepAlive();
+  Timer(const Duration(seconds: 5), () {
+    link.close();
+  });
+  final repo = ref.read(queueRepoProvider);
+  return repo.searchQueue(query);
 });
