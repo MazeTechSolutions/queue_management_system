@@ -1,6 +1,8 @@
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:multiple_result/multiple_result.dart';
+import 'package:queue_management_system/src/exceptions/app_exceptions.dart';
+import 'package:queue_management_system/src/exceptions/error_logger.dart';
 import 'package:queue_management_system/src/features/auth/application/auth_service.dart';
-import 'package:queue_management_system/src/features/auth/domain/models/admin.dart';
 import 'package:queue_management_system/src/features/auth/domain/models/auth_state.dart';
 
 // This provider manages the authentication state throughout the app
@@ -13,31 +15,47 @@ import 'package:queue_management_system/src/features/auth/domain/models/auth_sta
 // - Redirect unauthenticated users to login
 // - Prevent authenticated users from accessing login/welcome screens
 // - Allow/deny access to protected routes
+
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
   final authService = ref.read(authServiceProvider);
-  return AuthController(authService);
+  return AuthController(authService, ref); // Pass 'ref' here
 });
 
 class AuthController extends StateNotifier<AuthState> {
   final AuthService _authService;
+  final Ref ref; // Declare ref to hold the reference to the provider
 
-  AuthController(this._authService) : super(AuthState());
+  AuthController(this._authService, this.ref) : super(AuthState());
 
-  Future<bool> signIn(String email, String password) async {
-    final isValid = await _authService.validateCredentials(email, password);
-    if (isValid) {
-      await _authService.updateLoginStatus(email, true);
-      // After successful validation of credentials, update the AuthState
-      // Set isAuthenticated to true since the user is now logged in
-      // Store the admin's email to track who is currently authenticated
-      state = AuthState(
-        isAuthenticated: true,
-        adminEmail: email,
-      );
-      return true;
-    }
-    return false;
+  Future<String?> signIn(String email, String password) async {
+    final result =
+        await _authService.signInWithEmailAndPassword(email, password);
+    return result.when(
+      (success) {
+        state = AuthState(isAuthenticated: true, adminEmail: email);
+        return null;
+      },
+      (error) {
+        ref.read(errorLoggerProvider).logAppException(error);
+        return error.message;
+      },
+    );
+  }
+
+  Future<String?> createAdmin(String email, String password) async {
+    final result =
+        await _authService.createAdminWithEmailAndPassword(email, password);
+
+    return result.when(
+      (success) {
+        return null;
+      },
+      (error) {
+        ref.read(errorLoggerProvider).logAppException(error);
+        return error.message; //
+      },
+    );
   }
 
   Future<void> signOut() async {
@@ -47,17 +65,6 @@ class AuthController extends StateNotifier<AuthState> {
     }
     // After signing out, reset the AuthState to its initial state
     state = AuthState();
-  }
-
-  Future<void> createAdmin(String email, String password) async {
-    await Future.delayed(const Duration(
-        milliseconds: 1000)); // Add a small delay to simulate a network call
-    final admin = Admin(
-      id: DateTime.now().toString(),
-      email: email,
-      password: password,
-    );
-    await _authService.createAdmin(admin);
   }
 
   Future<void> deleteAdmin(String id) async {

@@ -13,6 +13,7 @@ String fn(AppException exception) {
     WeakPasswordException() => 'Password is too weak',
     WrongPasswordException() => 'Wrong password',
     UserNotFoundException() => 'User not found',
+    _ => 'An unknown error occurred',
   };
 }
 
@@ -31,4 +32,8 @@ class WrongPasswordException extends AppException {
 
 class UserNotFoundException extends AppException {
   UserNotFoundException() : super('user-not-found', 'User not found');
+}
+
+class UnknownErrorException extends AppException {
+  UnknownErrorException(String details) : super('unknown-error', details);
 }

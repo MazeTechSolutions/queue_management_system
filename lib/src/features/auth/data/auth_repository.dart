@@ -1,8 +1,11 @@
+import 'package:multiple_result/multiple_result.dart';
 import 'package:queue_management_system/src/exceptions/app_exceptions.dart';
 import 'package:queue_management_system/src/features/auth/domain/models/admin.dart';
 import 'package:queue_management_system/src/core/database/database_helper.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
+
+import '../../../exceptions/app_exceptions.dart';
 
 class AuthRepository {
   final DatabaseHelper _dbHelper;
@@ -25,40 +28,52 @@ class AuthRepository {
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<void> signInWithEmailAndPassword(String email, String password) async {
-    final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'admin',
-      where: 'email = ?',
-      whereArgs: [email],
-    );
+  Future<Result<void, AppException>> signInWithEmailAndPassword(
+      String email, String password) async {
+    try {
+      final db = await _dbHelper.database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'admin',
+        where: 'email = ?',
+        whereArgs: [email],
+      );
 
-    if (maps.isEmpty) {
-      throw UserNotFoundException();
+      if (maps.isEmpty) {
+        return Error(UserNotFoundException());
+      }
+
+      final admin = Admin.fromMap(maps.first);
+
+      if (admin.password != password) {
+        return Error(WrongPasswordException());
+      }
+
+      await updateLoginStatus(email, true);
+      return const Success(null);
+    } catch (e) {
+      return Error(UnknownErrorException(e.toString()));
     }
-
-    final admin = Admin.fromMap(maps.first);
-
-    if (admin.password != password) {
-      throw WrongPasswordException();
-    }
-
-    await updateLoginStatus(email, true);
   }
 
-  Future<void> createAdminWithEmailAndPassword(
+  Future<Result<void, AppException>> createAdminWithEmailAndPassword(
       String email, String password) async {
-    if (await _isEmailInUse(email)) {
-      throw EmailAlreadyInUseException();
-    }
+    try {
+      if (await _isEmailInUse(email)) {
+        return Error(EmailAlreadyInUseException());
+      }
 
-    if (password.length < 8) {
-      throw WeakPasswordException();
-    }
+      if (password.length < 8) {
+        return Error(WeakPasswordException());
+      }
 
-    final newAdmin =
-        Admin(id: DateTime.now().toString(), email: email, password: password);
-    await insertAdmin(newAdmin);
+      final newAdmin = Admin(
+          id: DateTime.now().toString(), email: email, password: password);
+      await insertAdmin(newAdmin);
+
+      return const Success(null);
+    } catch (e) {
+      return Error(UnknownErrorException(e.toString()));
+    }
   }
 
   Future<List<Admin>> getAdmins() async {

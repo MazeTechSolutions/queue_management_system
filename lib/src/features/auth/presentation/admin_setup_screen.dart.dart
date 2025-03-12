@@ -25,16 +25,41 @@ class AdminSetupScreen extends HookConsumerWidget {
       }
 
       isLoading.value = true;
-      await auth.createAdmin(emailController.text, passwordController.text);
+
+      final errorMessage =
+          await auth.createAdmin(emailController.text, passwordController.text);
       isLoading.value = false;
+
       emailController.clear();
       passwordController.clear();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Admin created successfully!')),
-        );
-        context.goNamed('welcome');
+        if (errorMessage != null) {
+          //
+          showDialog(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                title: const Text("Error"),
+                content: Text(errorMessage),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      (context).pop();
+                    },
+                    child: const Text("OK"),
+                  ),
+                ],
+              );
+            },
+          );
+        } else {
+          //
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Admin created successfully!')),
+          );
+          context.goNamed('welcome');
+        }
       }
     }
 

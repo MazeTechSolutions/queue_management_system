@@ -26,14 +26,26 @@ class LoginScreen extends HookConsumerWidget {
       }
       FocusScope.of(context).unfocus();
       isLoading.value = true;
-      final success = await auth.signIn(
+      final error = await auth.signIn(
         emailController.text,
         passwordController.text,
       );
       isLoading.value = false;
-      if (!success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid email or password')),
+
+      if (error != null) {
+        // Show dialog in case of error
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Login Error'),
+            content: Text(error),
+            actions: [
+              TextButton(
+                onPressed: () => (context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     }
